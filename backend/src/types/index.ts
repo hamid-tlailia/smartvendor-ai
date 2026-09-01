@@ -64,7 +64,7 @@ export interface ExtractedOrder {
   notes?: string | null;
 }
 
-export type CartChannel = Channel | 'web';
+export type CartChannel = Channel | 'web' | 'manual';
 export type CartStatus = 'open' | 'pending_confirmation' | 'confirmed' | 'abandoned' | 'cancelled';
 export type PaymentMethod = 'cod' | 'online' | 'bank_transfer';
 
@@ -106,3 +106,44 @@ export interface PipelineResult {
   matchedItemCount: number;
   unmatchedQueries: string[];
 }
+
+export interface AdminUser {
+  id: string;
+  merchant_id: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role: 'owner' | 'staff';
+}
+
+export type NotificationType =
+  | 'new_order'
+  | 'order_confirmed'
+  | 'manual_order'
+  | 'receipt_sent'
+  | 'receipt_failed';
+
+export interface Notification {
+  id: string;
+  merchant_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  related_cart_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+/** Payload for POST /api/orders/manual — an admin typing in an order taken by phone/DM/in person. */
+export interface ManualOrderInput {
+  source: CartChannel; // which channel the order actually came from, for record-keeping
+  customerName: string;
+  customerPhone: string;
+  customerCity: string;
+  customerAddress: string;
+  paymentMethod: PaymentMethod;
+  items: Array<{ productId: string; quantity: number; selectedOptions?: Record<string, string> }>;
+}
+
+export type ReceiptFormat = 'pdf' | 'image';
+export type ReceiptDestination = 'origin' | 'whatsapp';

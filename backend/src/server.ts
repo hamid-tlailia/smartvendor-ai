@@ -6,6 +6,10 @@ import { env } from './config/env';
 import { webhooksRouter } from './routes/webhooks';
 import { checkoutRouter } from './routes/checkout';
 import { dashboardRouter } from './routes/dashboard';
+import { authRouter } from './routes/auth';
+import { ordersRouter } from './routes/orders';
+import { notificationsRouter } from './routes/notifications';
+import { productsRouter } from './routes/products';
 
 const app = express();
 
@@ -29,6 +33,10 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'smartvendor
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/orders', ordersRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/products', productsRouter);
 
 app.use((req, res) => res.status(404).json({ error: 'not found' }));
 

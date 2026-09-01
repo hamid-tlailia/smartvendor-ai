@@ -1,6 +1,16 @@
 import { supabase } from '../lib/supabaseClient';
 import { env } from '../config/env';
+import { createNotification } from './notificationService';
 import { Cart, CartChannel, CartItem, ExtractedOrder, ProductMatch } from '../types';
+
+const CHANNEL_LABEL_AR: Record<CartChannel, string> = {
+  whatsapp: 'واتساب',
+  instagram: 'إنستغرام',
+  messenger: 'ماسنجر',
+  tiktok: 'تيك توك',
+  web: 'الموقع',
+  manual: 'إدخال يدوي',
+};
 
 export interface CreateCartInput {
   merchantId: string;
@@ -109,6 +119,14 @@ export async function createCartFromExtraction(input: CreateCartInput): Promise<
     .single();
   if (refreshError) throw refreshError;
 
+  await createNotification(
+    input.merchantId,
+    'new_order',
+    `طلب جديد عبر ${CHANNEL_LABEL_AR[input.channel]}`,
+    refreshed.customer_name ? `من ${refreshed.customer_name}` : undefined,
+    refreshed.id,
+  );
+
   return { cart: refreshed as Cart, unmatchedQueries };
 }
 
@@ -156,5 +174,75 @@ export async function confirmCart(cartId: string, input: ConfirmCartInput): Prom
     .single();
 
   if (error) throw error;
+
+  await createNotification(
+    data.merchant_id,
+    'order_confirmed',
+    'تم تأكيد الطلب',
+    `${input.customerName} — ${data.total} ${data.currency}`,
+    data.id,
+  );
+
   return data as Cart;
+}
+
+/** Directly creates a fully-confirmed order from the dashboard's "new manual order" form — no AI extraction involved. */
+export async function createManualOrder(input: {
+  merchantId: string;
+  source: CartChannel;
+  currency: string;
+  customerName: string;
+  customerPhone: string;
+  customerCity: string;
+  customerAddress: string;
+  paymentMethod: 'cod' | 'online' | 'bank_transfer';
+  items: Array<{ productId: string; quantity: number; unitPrice: number; name: string; imageUrl: string | null; selectedOptions?: Record<string, string> }>;
+}): Promise<Cart> {
+  const { data: cart, error } = await supabase
+    .from('carts')
+    .insert({
+      merchant_id: input.merchantId,
+      channel: input.source,
+      channel_thread_id: input.customerPhone,
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
+      customer_name: input.customerName,
+      customer_phone: input.customerPhone,
+      customer_city: input.customerCity,
+      customer_address: input.customerAddress,
+      payment_method: input.paymentMethod,
+      currency: input.currency,
+      source_message: 'أُدخل يدوياً من لوحة التحكم',
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+
+  const rows = input.items.map((item) => ({
+    cart_id: cart.id,
+    product_id: item.productId,
+    name_snapshot: item.name,
+    image_snapshot: item.imageUrl,
+    unit_price: item.unitPrice,
+    quantity: item.quantity,
+    selected_options: item.selectedOptions ?? {},
+    match_score: null,
+  }));
+  if (rows.length > 0) {
+    const { error: itemsError } = await supabase.from('cart_items').insert(rows);
+    if (itemsError) throw itemsError;
+  }
+
+  const { data: refreshed, error: refreshError } = await supabase.from('carts').select('*').eq('id', cart.id).single();
+  if (refreshError) throw refreshError;
+
+  await createNotification(
+    input.merchantId,
+    'manual_order',
+    `طلب يدوي جديد (${CHANNEL_LABEL_AR[input.source]})`,
+    `${input.customerName} — ${refreshed.total} ${refreshed.currency}`,
+    refreshed.id,
+  );
+
+  return refreshed as Cart;
 }

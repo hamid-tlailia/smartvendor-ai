@@ -15,9 +15,9 @@ export async function transcribeVoiceNote(audioBuffer: Buffer, filename: string)
     file,
     model: env.groqWhisperModel,
     language: 'ar',
-    response_format: 'text',
+    response_format: 'json',
     temperature: 0,
   });
 
-  return typeof transcription === 'string' ? transcription.trim() : String(transcription).trim();
+  return transcription.text.trim();
 }

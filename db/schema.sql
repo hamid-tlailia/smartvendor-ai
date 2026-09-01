@@ -69,7 +69,7 @@ create index if not exists idx_products_embedding_ivfflat
 -- after it extracts a structured order; the customer confirms it on the
 -- Micro-PWA checkout page, at which point status flips to 'confirmed'.
 -- ---------------------------------------------------------------------------
-create type cart_channel as enum ('whatsapp', 'instagram', 'messenger', 'tiktok', 'web');
+create type cart_channel as enum ('whatsapp', 'instagram', 'messenger', 'tiktok', 'web', 'manual');
 create type cart_status as enum ('open', 'pending_confirmation', 'confirmed', 'abandoned', 'cancelled');
 create type payment_method as enum ('cod', 'online', 'bank_transfer');
 
@@ -229,3 +229,53 @@ create policy "public can read own cart" on carts
 drop policy if exists "public can read own cart items" on cart_items;
 create policy "public can read own cart items" on cart_items
   for select using (true);
+
+-- =============================================================================
+-- Admin accounts, notifications — merchant dashboard auth + in-app alerts.
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- admin_users
+-- One login per dashboard user. Password hashing (bcrypt) happens in the
+-- backend (lib/auth.ts) — this column only ever stores the hash.
+-- ---------------------------------------------------------------------------
+create table if not exists admin_users (
+  id            uuid primary key default gen_random_uuid(),
+  merchant_id   uuid not null references merchants (id) on delete cascade,
+  email         text not null unique,
+  password_hash text not null,
+  full_name     text not null,
+  role          text not null default 'owner', -- 'owner' | 'staff'
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists idx_admin_users_merchant_id on admin_users (merchant_id);
+
+drop trigger if exists trg_admin_users_updated_at on admin_users;
+create trigger trg_admin_users_updated_at before update on admin_users
+  for each row execute function set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- notifications
+-- In-app notification feed shown in the dashboard's bell menu (new AI-parsed
+-- orders, confirmations, receipt delivery failures, ...).
+-- ---------------------------------------------------------------------------
+create table if not exists notifications (
+  id              uuid primary key default gen_random_uuid(),
+  merchant_id     uuid not null references merchants (id) on delete cascade,
+  type            text not null, -- 'new_order' | 'order_confirmed' | 'manual_order' | 'receipt_sent' | 'receipt_failed'
+  title           text not null,
+  body            text,
+  related_cart_id uuid references carts (id) on delete set null,
+  is_read         boolean not null default false,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists idx_notifications_merchant_id on notifications (merchant_id, created_at desc);
+create index if not exists idx_notifications_unread on notifications (merchant_id) where is_read = false;
+
+alter table admin_users enable row level security;
+alter table notifications enable row level security;
+-- No public policies: admin_users/notifications are only ever read through
+-- the backend's service-role client, gated by the JWT auth middleware.

@@ -1,10 +1,10 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, Part, Schema, SchemaType } from '@google/generative-ai';
 import { env } from '../config/env';
 
 const client = new GoogleGenerativeAI(env.geminiApiKey());
 
 /** JSON schema Gemini must conform to when extracting a structured order. */
-const orderExtractionSchema = {
+const orderExtractionSchema: Schema = {
   type: SchemaType.OBJECT,
   properties: {
     customer_name: { type: SchemaType.STRING, nullable: true },
@@ -35,7 +35,7 @@ const orderExtractionSchema = {
     notes: { type: SchemaType.STRING, nullable: true },
   },
   required: ['items'],
-} as const;
+};
 
 const EXTRACTION_SYSTEM_PROMPT = `You are an order-intake assistant for an Arabic-speaking e-commerce merchant
 selling through social media DMs. Given a customer's message (which may mix Arabic,
@@ -69,7 +69,7 @@ export interface GeminiOrderInput {
 
 /** Runs Gemini 1.5 Flash structured-output extraction on the normalized customer message. */
 export async function extractOrderFromMessage(input: GeminiOrderInput) {
-  const parts: Array<Record<string, unknown>> = [{ text: input.text }];
+  const parts: Part[] = [{ text: input.text }];
   if (input.imageBase64 && input.imageMimeType) {
     parts.push({
       inlineData: { data: input.imageBase64, mimeType: input.imageMimeType },

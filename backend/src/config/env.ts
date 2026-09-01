@@ -41,4 +41,13 @@ export const env = {
 
   vectorMatchThreshold: Number(process.env.VECTOR_MATCH_THRESHOLD ?? 0.72),
   vectorMatchCount: Number(process.env.VECTOR_MATCH_COUNT ?? 5),
+
+  jwtSecret: () => required('JWT_SECRET'),
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+
+  supabaseReceiptsBucket: process.env.SUPABASE_RECEIPTS_BUCKET ?? 'receipts',
+  // Path to a Chromium/Chrome binary for puppeteer-core, used to render the
+  // Arabic RTL receipt (PDF/PNG). Leave unset locally if a system Chrome is
+  // discoverable; most hosts (Fly.io, Render, Docker) need this set explicitly.
+  puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
 };
