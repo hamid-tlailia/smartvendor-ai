@@ -1,0 +1,12 @@
+{
+  "name": "SmartVendor AI — إتمام الطلب",
+  "short_name": "SmartVendor",
+  "description": "Micro-PWA checkout for SmartVendor AI conversational commerce.",
+  "start_url": "/checkout/",
+  "display": "standalone",
+  "background_color": "#F6F8F7",
+  "theme_color": "#1E6F5C",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": []
+}
